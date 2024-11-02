@@ -25,13 +25,53 @@ import SwiftUI
 
 // MARK: - Data (Objects)
 struct Combatant {
-    var position: CGPoint
-    var size: CGSize
-    var color: Color
+    let name: String
+}
+
+// MARK: - Repositories
+class CombatStatsRepository {
+    func getStats(for name: String) -> CombatStats {
+        switch name {
+        case "勇者":
+            return CombatStats(maxHP: 100, currentHP: 100, attack: 25)
+        case "魔王":
+            return CombatStats(maxHP: 150, currentHP: 150, attack: 15)
+        default:
+            return CombatStats(maxHP: 100, currentHP: 100, attack: 10)
+        }
+    }
+}
+
+class VisualRepository {
+    func getVisuals(for name: String) -> CombatantVisuals {
+        switch name {
+        case "勇者":
+            return CombatantVisuals(
+                position: CGPoint(x: 100, y: 200),
+                size: CGSize(width: 50, height: 80),
+                color: .blue
+            )
+        case "魔王":
+            return CombatantVisuals(
+                position: CGPoint(x: 280, y: 200),
+                size: CGSize(width: 60, height: 60),
+                color: .red
+            )
+        default:
+            return CombatantVisuals(
+                position: .zero,
+                size: CGSize(width: 50, height: 50),
+                color: .gray
+            )
+        }
+    }
+}
+
+// MARK: - Value Types
+struct CombatStats {
     var maxHP: Int
     var currentHP: Int
     var attack: Int
-    var name: String
     
     var healthPercentage: Double {
         Double(currentHP) / Double(maxHP)
@@ -42,6 +82,77 @@ struct Combatant {
     }
 }
 
+struct CombatantVisuals {
+    var position: CGPoint
+    var size: CGSize
+    var color: Color
+}
+
+// MARK: - Contexts
+class CombatContext: ObservableObject {
+    private let statsRepo = CombatStatsRepository()
+    
+    @Published var playerStats: CombatStats
+    @Published var enemyStats: CombatStats
+    @Published var isAttacking: Bool = false
+    @Published var gameOver: Bool = false
+    
+    let player: Combatant
+    let enemy: Combatant
+    
+    init() {
+        self.player = Combatant(name: "勇者")
+        self.enemy = Combatant(name: "魔王")
+        
+        self.playerStats = statsRepo.getStats(for: player.name)
+        self.enemyStats = statsRepo.getStats(for: enemy.name)
+    }
+    
+    func performAttack() {
+        enemyStats.takeDamage(playerStats.attack)
+        if enemyStats.currentHP <= 0 {
+            gameOver = true
+        }
+    }
+}
+
+class VisualContext: ObservableObject {
+    private let visualRepo = VisualRepository()
+    
+    @Published var playerVisuals: CombatantVisuals
+    @Published var enemyVisuals: CombatantVisuals
+    @Published var slashEffect = CombatEffect(position: CGPoint(x: 280, y: 200), isVisible: false)
+    @Published var damageNumber = DamageNumber(amount: 0, position: CGPoint(x: 280, y: 150), isVisible: false)
+    
+    init(player: Combatant, enemy: Combatant) {
+        self.playerVisuals = visualRepo.getVisuals(for: player.name)
+        self.enemyVisuals = visualRepo.getVisuals(for: enemy.name)
+    }
+    
+    func animateAttack(damage: Int) async {
+        let originalPosition = playerVisuals.position
+        
+        withAnimation(.easeInOut(duration: 0.3)) {
+            playerVisuals.position.x += 100
+        }
+        
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        withAnimation(.easeIn(duration: 0.2)) {
+            slashEffect.isVisible = true
+            damageNumber.amount = damage
+            damageNumber.isVisible = true
+        }
+        
+        try? await Task.sleep(nanoseconds: 500_000_000)
+        withAnimation(.easeOut(duration: 0.2)) {
+            slashEffect.isVisible = false
+            damageNumber.isVisible = false
+            playerVisuals.position = originalPosition
+        }
+    }
+}
+
+// MARK: - Views
 struct CombatEffect {
     var position: CGPoint
     var isVisible: Bool
@@ -53,121 +164,13 @@ struct DamageNumber {
     var isVisible: Bool
 }
 
-// MARK: - Roles (Interactions)
-protocol Attacker {
-    func attack(target: CGPoint) async
-}
-
-protocol CombatAnimatable {
-    var position: CGPoint { get set }
-    mutating func moveForward(by offset: CGFloat)
-    mutating func moveBack(to originalPosition: CGPoint)
-}
-
-protocol Damageable {
-    var currentHP: Int { get set }
-    var maxHP: Int { get }
-    mutating func takeDamage(_ amount: Int)
-}
-
-// MARK: - Context (Use Cases)
-class CombatContext: ObservableObject {
-    @Published var player: Combatant
-    @Published var enemy: Combatant
-    @Published var slashEffect: CombatEffect
-    @Published var damageNumber: DamageNumber
-    @Published var isAttacking: Bool = false
-    @Published var gameOver: Bool = false
-    
-    init() {
-        self.player = Combatant(
-            position: CGPoint(x: 100, y: 200),
-            size: CGSize(width: 50, height: 80),
-            color: .blue,
-            maxHP: 100,
-            currentHP: 100,
-            attack: 25,
-            name: "勇者"
-        )
-        
-        self.enemy = Combatant(
-            position: CGPoint(x: 280, y: 200),
-            size: CGSize(width: 60, height: 60),
-            color: .red,
-            maxHP: 150,
-            currentHP: 150,
-            attack: 15,
-            name: "魔王"
-        )
-        
-        self.slashEffect = CombatEffect(
-            position: CGPoint(x: 280, y: 200),
-            isVisible: false
-        )
-        
-        self.damageNumber = DamageNumber(
-            amount: 0,
-            position: CGPoint(x: 280, y: 150),
-            isVisible: false
-        )
-    }
-}
-
-// MARK: - Role Extensions
-extension Combatant: CombatAnimatable {
-
-    
-    mutating func moveForward(by offset: CGFloat) {
-        position.x += offset
-    }
-    
-    mutating func moveBack(to originalPosition: CGPoint) {
-        position = originalPosition
-    }
-}
-
-extension CombatContext: Attacker {
-    func attack(target: CGPoint) async {
-        let originalPosition = player.position
-        
-        // Move forward
-        withAnimation(.easeInOut(duration: 0.3)) {
-            isAttacking = true
-            player.moveForward(by: 100)
-        }
-        
-        // Show slash effect
-        try? await Task.sleep(nanoseconds: 300_000_000)
-        withAnimation(.easeIn(duration: 0.2)) {
-            slashEffect.isVisible = true
-            enemy.takeDamage(player.attack)
-            damageNumber.amount = player.attack
-            damageNumber.isVisible = true
-        }
-        
-        // Hide effects and return
-        try? await Task.sleep(nanoseconds: 500_000_000)
-        withAnimation(.easeOut(duration: 0.2)) {
-            slashEffect.isVisible = false
-            damageNumber.isVisible = false
-            player.moveBack(to: originalPosition)
-            isAttacking = false
-        }
-        
-        // Check if enemy is defeated
-        if enemy.currentHP <= 0 {
-            gameOver = true
-        }
-    }
-}
-
-// MARK: - Views
 struct HealthBarView: View {
     let character: Combatant
+    let stats: CombatStats
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("\(character.name) HP: \(character.currentHP)/\(character.maxHP)")
+            Text("\(character.name) HP: \(stats.currentHP)/\(stats.maxHP)")
                 .foregroundColor(.white)
             
             GeometryReader { geometry in
@@ -177,7 +180,7 @@ struct HealthBarView: View {
                     
                     Rectangle()
                         .fill(Color.green)
-                        .frame(width: geometry.size.width * character.healthPercentage)
+                        .frame(width: geometry.size.width * stats.healthPercentage)
                 }
             }
             .frame(height: 20)
@@ -188,7 +191,17 @@ struct HealthBarView: View {
 }
 
 struct CombatView: View {
-    @StateObject private var context = CombatContext()
+    @StateObject private var combatContext = CombatContext()
+    @StateObject private var visualContext: VisualContext
+    
+    init() {
+        let combat = CombatContext()
+        _combatContext = StateObject(wrappedValue: combat)
+        _visualContext = StateObject(wrappedValue: VisualContext(
+            player: combat.player,
+            enemy: combat.enemy
+        ))
+    }
     
     var body: some View {
         ZStack {
@@ -199,9 +212,11 @@ struct CombatView: View {
             VStack {
                 // Health bars
                 HStack {
-                    HealthBarView(character: context.player)
+                    HealthBarView(character: combatContext.player, 
+                                stats: combatContext.playerStats)
                     Spacer()
-                    HealthBarView(character: context.enemy)
+                    HealthBarView(character: combatContext.enemy, 
+                                stats: combatContext.enemyStats)
                 }
                 .padding()
                 
@@ -210,37 +225,40 @@ struct CombatView: View {
             
             // Enemy
             Circle()
-                .fill(context.enemy.color)
-                .frame(width: context.enemy.size.width,
-                       height: context.enemy.size.height)
-                .position(context.enemy.position)
+                .fill(visualContext.enemyVisuals.color)
+                .frame(width: visualContext.enemyVisuals.size.width,
+                       height: visualContext.enemyVisuals.size.height)
+                .position(visualContext.enemyVisuals.position)
             
             // Player
             Rectangle()
-                .fill(context.player.color)
-                .frame(width: context.player.size.width,
-                       height: context.player.size.height)
-                .position(context.player.position)
+                .fill(visualContext.playerVisuals.color)
+                .frame(width: visualContext.playerVisuals.size.width,
+                       height: visualContext.playerVisuals.size.height)
+                .position(visualContext.playerVisuals.position)
             
             // Slash effect
-            if context.slashEffect.isVisible {
+            if visualContext.slashEffect.isVisible {
                 SlashEffect()
-                    .position(context.slashEffect.position)
+                    .position(visualContext.slashEffect.position)
                     .transition(.opacity)
             }
             
             // Damage number
-            if context.damageNumber.isVisible {
-                Text("-\(context.damageNumber.amount)")
+            if visualContext.damageNumber.isVisible {
+                Text("-\(visualContext.damageNumber.amount)")
                     .font(.system(size: 24, weight: .bold))
                     .foregroundColor(.white)
-                    .position(context.damageNumber.position)
+                    .position(visualContext.damageNumber.position)
             }
             
             // Attack button
             Button("攻擊") {
                 Task {
-                    await context.attack(target: context.enemy.position)
+                    combatContext.isAttacking = true
+                    await visualContext.animateAttack(damage: combatContext.playerStats.attack)
+                    combatContext.performAttack()
+                    combatContext.isAttacking = false
                 }
             }
             .foregroundColor(.white)
@@ -248,10 +266,10 @@ struct CombatView: View {
             .background(Color.gray)
             .cornerRadius(10)
             .position(x: 200, y: 400)
-            .disabled(context.isAttacking || context.gameOver)
+            .disabled(combatContext.isAttacking || combatContext.gameOver)
             
             // Game over overlay
-            if context.gameOver {
+            if combatContext.gameOver {
                 Text("戰鬥勝利！")
                     .font(.largeTitle)
                     .foregroundColor(.white)

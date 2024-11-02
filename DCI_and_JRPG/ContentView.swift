@@ -10,7 +10,7 @@ import SwiftUI
 struct ContentView: View {
     var body: some View {
         VStack {
-           CombatView()
+            CombatView()
         }
         .padding()
     }
@@ -20,15 +20,16 @@ struct ContentView: View {
     ContentView()
 }
 
-
 import SwiftUI
 
 // MARK: - Data (Objects)
+
 struct Combatant {
     let name: String
 }
 
 // MARK: - Roles (Interactions)
+
 protocol Attacker {
     var name: String { get }
     func attack(_ target: Defender)
@@ -48,30 +49,27 @@ protocol Defender {
 }
 
 extension Defender {
-    
-   
-    
     func takeDamage(_ amount: Int) {
-          guard let context = CombatContext.current else { return }
-          context.applyDamage(amount, to: name)
-          
-          // 如果自己死了，通知 context
-          if isDead {
-              context.notifyDefenderDied()
-          }
-      }
-      
-      var isDead: Bool {
-          guard let context = CombatContext.current else { return false }
-          let hp = context.getCurrentHP(for: name)
-          return hp.current <= 0
-      }
-  
+        guard let context = CombatContext.current else { return }
+        context.applyDamage(amount, to: name)
+
+        // 如果自己死了，通知 context
+        if isDead {
+            context.notifyDefenderDied()
+        }
+    }
+
+    var isDead: Bool {
+        guard let context = CombatContext.current else { return false }
+        let hp = context.getCurrentHP(for: name)
+        return hp.current <= 0
+    }
 }
 
 extension Combatant: Attacker, Defender {}
 
 // MARK: - Repositories
+
 class CombatStatsRepository {
     func getInitialStats(for name: String) -> (hp: (current: Int, max: Int), attackPower: Int) {
         switch name {
@@ -86,6 +84,7 @@ class CombatStatsRepository {
 }
 
 // MARK: - Visual Repository
+
 class VisualRepository {
     func getVisuals(for name: String) -> CombatantVisuals {
         switch name {
@@ -112,6 +111,7 @@ class VisualRepository {
 }
 
 // MARK: - Visual Types
+
 struct CombatantVisuals {
     let position: CGPoint
     let size: CGSize
@@ -130,22 +130,23 @@ struct DamageNumber {
 }
 
 // MARK: - Visual Context
+
 class VisualContext: ObservableObject {
     private let visualRepo = VisualRepository()
-    
+
     @Published var playerVisuals: CombatantVisuals
     @Published var enemyVisuals: CombatantVisuals
     @Published var slashEffect = CombatEffect(position: CGPoint(x: 280, y: 200), isVisible: false)
     @Published var damageNumber = DamageNumber(amount: 0, position: CGPoint(x: 280, y: 150), isVisible: false)
-    
+
     init(player: Combatant, enemy: Combatant) {
-        self.playerVisuals = visualRepo.getVisuals(for: player.name)
-        self.enemyVisuals = visualRepo.getVisuals(for: enemy.name)
+        playerVisuals = visualRepo.getVisuals(for: player.name)
+        enemyVisuals = visualRepo.getVisuals(for: enemy.name)
     }
-    
+
     func animateAttack(damage: Int) async {
         let originalPosition = playerVisuals.position
-        
+
         withAnimation(.easeInOut(duration: 0.3)) {
             // 因為 playerVisuals 是 let，我們需要創建一個新的實例
             playerVisuals = CombatantVisuals(
@@ -154,14 +155,14 @@ class VisualContext: ObservableObject {
                 color: playerVisuals.color
             )
         }
-        
+
         try? await Task.sleep(nanoseconds: 300_000_000)
         withAnimation(.easeIn(duration: 0.2)) {
             slashEffect.isVisible = true
             damageNumber.amount = damage
             damageNumber.isVisible = true
         }
-        
+
         try? await Task.sleep(nanoseconds: 500_000_000)
         withAnimation(.easeOut(duration: 0.2)) {
             slashEffect.isVisible = false
@@ -176,6 +177,7 @@ class VisualContext: ObservableObject {
 }
 
 // MARK: - Visual Components
+
 struct SlashEffect: View {
     var body: some View {
         Path { path in
@@ -190,69 +192,69 @@ struct SlashEffect: View {
 }
 
 // MARK: - Context
+
 class CombatContext: ObservableObject {
-    static private(set) var current: CombatContext?
+    private(set) static var current: CombatContext?
     private let statsRepo = CombatStatsRepository()
-    
+
     // 戰鬥狀態
     @Published var playerHP: (current: Int, max: Int)
     @Published var enemyHP: (current: Int, max: Int)
     @Published var isAttacking: Bool = false
     @Published var gameOver: Bool = false
-    
+
     // 戰鬥數值
     private let playerAttackPower: Int
     private let enemyAttackPower: Int
-    
+
     // 原始數據
     let player: Combatant
     let enemy: Combatant
-    
+
     // Role assignments
     private var playerAsAttacker: Attacker?
     private var enemyAsDefender: Defender?
-    
+
     init() {
-        self.player = Combatant(name: "勇者")
-        self.enemy = Combatant(name: "魔王")
-        
+        player = Combatant(name: "勇者")
+        enemy = Combatant(name: "魔王")
+
         // 從 Repository 獲取初始數據
         let playerStats = statsRepo.getInitialStats(for: player.name)
         let enemyStats = statsRepo.getInitialStats(for: enemy.name)
-        
-        self.playerHP = playerStats.hp
-        self.enemyHP = enemyStats.hp
-        self.playerAttackPower = playerStats.attackPower
-        self.enemyAttackPower = enemyStats.attackPower
-        
-        playerAsAttacker =  player as Attacker
-  
-        enemyAsDefender = enemy  as Defender
-        
-        
+
+        playerHP = playerStats.hp
+        enemyHP = enemyStats.hp
+        playerAttackPower = playerStats.attackPower
+        enemyAttackPower = enemyStats.attackPower
+
+        playerAsAttacker = player as Attacker
+
+        enemyAsDefender = enemy as Defender
+
         CombatContext.current = self
     }
-    
+
     deinit {
         if CombatContext.current === self {
             CombatContext.current = nil
         }
     }
-    
-    
+
     func performAttack() {
         guard let attacker = playerAsAttacker,
-              let defender = enemyAsDefender else {
+              let defender = enemyAsDefender
+        else {
             return
         }
-        
+
         attacker.attack(defender)
     }
-    
+
     fileprivate func notifyDefenderDied() {
-           gameOver = true
-       }
-    
+        gameOver = true
+    }
+
     // Context methods for roles to access data
     fileprivate func getAttackPower(for name: String) -> Int {
         switch name {
@@ -261,7 +263,7 @@ class CombatContext: ObservableObject {
         default: return 0
         }
     }
-    
+
     fileprivate func getCurrentHP(for name: String) -> (current: Int, max: Int) {
         switch name {
         case player.name: return playerHP
@@ -269,7 +271,7 @@ class CombatContext: ObservableObject {
         default: return (0, 0)
         }
     }
-    
+
     fileprivate func applyDamage(_ amount: Int, to name: String) {
         switch name {
         case player.name:
@@ -283,10 +285,11 @@ class CombatContext: ObservableObject {
 }
 
 // MARK: - Views
+
 struct CombatView: View {
     @StateObject private var combatContext = CombatContext()
     @StateObject private var visualContext: VisualContext
-    
+
     init() {
         let combat = CombatContext()
         _combatContext = StateObject(wrappedValue: combat)
@@ -294,50 +297,49 @@ struct CombatView: View {
             player: combat.player,
             enemy: combat.enemy
         ))
-
     }
-    
+
     var body: some View {
         ZStack {
             // Background
             Color.black
                 .ignoresSafeArea()
-            
+
             VStack {
                 // Health bars
                 HStack {
                     HealthBarView(character: combatContext.player,
-                                hp: combatContext.playerHP)
+                                  hp: combatContext.playerHP)
                     Spacer()
                     HealthBarView(character: combatContext.enemy,
-                                hp: combatContext.enemyHP)
+                                  hp: combatContext.enemyHP)
                 }
                 .padding()
-                
+
                 Spacer()
             }
-            
+
             // Enemy
             Circle()
                 .fill(visualContext.enemyVisuals.color)
                 .frame(width: visualContext.enemyVisuals.size.width,
                        height: visualContext.enemyVisuals.size.height)
                 .position(visualContext.enemyVisuals.position)
-            
+
             // Player
             Rectangle()
                 .fill(visualContext.playerVisuals.color)
                 .frame(width: visualContext.playerVisuals.size.width,
                        height: visualContext.playerVisuals.size.height)
                 .position(visualContext.playerVisuals.position)
-            
+
             // Slash effect
             if visualContext.slashEffect.isVisible {
                 SlashEffect()
                     .position(visualContext.slashEffect.position)
                     .transition(.opacity)
             }
-            
+
             // Damage number
             if visualContext.damageNumber.isVisible {
                 Text("-\(visualContext.damageNumber.amount)")
@@ -345,7 +347,7 @@ struct CombatView: View {
                     .foregroundColor(.white)
                     .position(visualContext.damageNumber.position)
             }
-            
+
             // Attack button
             Button("攻擊") {
                 Task {
@@ -363,7 +365,7 @@ struct CombatView: View {
             .cornerRadius(10)
             .position(x: 200, y: 400)
             .disabled(combatContext.isAttacking || combatContext.gameOver)
-            
+
             // Game over overlay
             if combatContext.gameOver {
                 Text("戰鬥勝利！")
@@ -386,21 +388,21 @@ struct CombatView_Previews: PreviewProvider {
 struct HealthBarView: View {
     let character: Combatant
     let hp: (current: Int, max: Int)
-    
+
     var healthPercentage: Double {
         Double(hp.current) / Double(hp.max)
     }
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("\(character.name) HP: \(hp.current)/\(hp.max)")
                 .foregroundColor(.white)
-            
+
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Rectangle()
                         .fill(Color.gray.opacity(0.3))
-                    
+
                     Rectangle()
                         .fill(Color.green)
                         .frame(width: geometry.size.width * healthPercentage)

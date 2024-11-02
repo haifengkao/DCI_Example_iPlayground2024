@@ -31,7 +31,7 @@ extension BirdData: Swimmable {
 class BirdMovementContext {
     private var flyingBehavior: Flyable?
     private var swimmingBehavior: Swimmable?
-    
+
     init(bird: BirdData) {
         if bird.name == "企鵝" {
             swimmingBehavior = bird
@@ -42,24 +42,24 @@ class BirdMovementContext {
             swimmingBehavior = bird
         }
     }
-    
+
     func performTravel() {
         print("開始移動...")
-        
+
         if let flying = flyingBehavior {
             print("嘗試飛行：")
             flying.fly()
         }
-        
+
         if let swimming = swimmingBehavior {
             print("嘗試游泳：")
             swimming.swim()
         }
-        
-        if flyingBehavior == nil && swimmingBehavior == nil {
+
+        if flyingBehavior == nil, swimmingBehavior == nil {
             print("這隻鳥既不會飛也不會游泳！")
         }
-        
+
         print("移動結束\n")
     }
 }
@@ -70,19 +70,19 @@ func testBirds() {
     let crow = BirdData(name: "烏鴉")
     let duck = BirdData(name: "鴨子")
     let ostrich = BirdData(name: "鴕鳥")
-    
+
     print("=== 企鵝的移動 ===")
     let penguinContext = BirdMovementContext(bird: penguin)
     penguinContext.performTravel()
-    
+
     print("=== 烏鴉的移動 ===")
     let crowContext = BirdMovementContext(bird: crow)
     crowContext.performTravel()
-    
+
     print("=== 鴨子的移動 ===")
     let duckContext = BirdMovementContext(bird: duck)
     duckContext.performTravel()
-    
+
     print("=== 鴕鳥的移動 ===")
     let ostrichContext = BirdMovementContext(bird: ostrich)
     ostrichContext.performTravel()
@@ -90,4 +90,3 @@ func testBirds() {
 
 // 執行測試
 testBirds()
-

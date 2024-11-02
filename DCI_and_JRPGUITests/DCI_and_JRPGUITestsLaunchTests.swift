@@ -8,7 +8,6 @@
 import XCTest
 
 final class DCI_and_JRPGUITestsLaunchTests: XCTestCase {
-
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true
     }

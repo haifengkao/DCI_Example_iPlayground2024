@@ -49,10 +49,24 @@ protocol Defender {
 
 extension Defender {
     
+   
+    
     func takeDamage(_ amount: Int) {
-        guard let context = CombatContext.current else { return }
-        context.applyDamage(amount, to: name)
-    }
+          guard let context = CombatContext.current else { return }
+          context.applyDamage(amount, to: name)
+          
+          // 如果自己死了，通知 context
+          if isDead {
+              context.notifyDefenderDied()
+          }
+      }
+      
+      var isDead: Bool {
+          guard let context = CombatContext.current else { return false }
+          let hp = context.getCurrentHP(for: name)
+          return hp.current <= 0
+      }
+  
 }
 
 extension Combatant: Attacker, Defender {}
@@ -233,14 +247,14 @@ class CombatContext: ObservableObject {
         }
         
         attacker.attack(defender)
-        
-        if enemyHP.current <= 0 {
-            gameOver = true
-        }
     }
     
+    fileprivate func notifyDefenderDied() {
+           gameOver = true
+       }
+    
     // Context methods for roles to access data
-    func getAttackPower(for name: String) -> Int {
+    fileprivate func getAttackPower(for name: String) -> Int {
         switch name {
         case player.name: return playerAttackPower
         case enemy.name: return enemyAttackPower
@@ -248,7 +262,7 @@ class CombatContext: ObservableObject {
         }
     }
     
-    func getCurrentHP(for name: String) -> (current: Int, max: Int) {
+    fileprivate func getCurrentHP(for name: String) -> (current: Int, max: Int) {
         switch name {
         case player.name: return playerHP
         case enemy.name: return enemyHP
@@ -256,7 +270,7 @@ class CombatContext: ObservableObject {
         }
     }
     
-    func applyDamage(_ amount: Int, to name: String) {
+    fileprivate func applyDamage(_ amount: Int, to name: String) {
         switch name {
         case player.name:
             playerHP.current = max(0, playerHP.current - amount)

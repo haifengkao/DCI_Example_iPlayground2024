@@ -30,14 +30,25 @@ struct Combatant {
 
 // MARK: - Repositories
 class CombatStatsRepository {
-    func getStats(for name: String) -> CombatStats {
+    func getAttackStats(for name: String) -> AttackStats {
         switch name {
         case "勇者":
-            return CombatStats(maxHP: 100, currentHP: 100, attack: 25)
+            return AttackStats(attack: 25)
         case "魔王":
-            return CombatStats(maxHP: 150, currentHP: 150, attack: 15)
+            return AttackStats(attack: 15)
         default:
-            return CombatStats(maxHP: 100, currentHP: 100, attack: 10)
+            return AttackStats(attack: 10)
+        }
+    }
+    
+    func getDefenseStats(for name: String) -> DefenseStats {
+        switch name {
+        case "勇者":
+            return DefenseStats(maxHP: 100, currentHP: 100)
+        case "魔王":
+            return DefenseStats(maxHP: 150, currentHP: 150)
+        default:
+            return DefenseStats(maxHP: 100, currentHP: 100)
         }
     }
 }
@@ -68,10 +79,13 @@ class VisualRepository {
 }
 
 // MARK: - Value Types
-struct CombatStats {
+struct AttackStats {
+    let attack: Int
+}
+
+struct DefenseStats {
     var maxHP: Int
     var currentHP: Int
-    var attack: Int
     
     var healthPercentage: Double {
         Double(currentHP) / Double(maxHP)
@@ -90,20 +104,20 @@ struct CombatantVisuals {
 
 // MARK: - Roles (Interactions)
 protocol Attacker {
-    var attackStats: CombatStats { get }
+    var attackStats: AttackStats { get }
     func attack(_ target: Defender)
 }
 
 protocol Defender {
-    var defenseStats: CombatStats { get }
+    var defenseStats: DefenseStats { get }
     func takeDamage(_ amount: Int)
-    func updateStats(_ newStats: CombatStats)
+    func updateStats(_ newStats: DefenseStats)
 }
 
 // MARK: - Role Extensions
 extension Combatant: Attacker {
-    var attackStats: CombatStats {
-        CombatStatsRepository().getStats(for: name)
+    var attackStats: AttackStats {
+        CombatStatsRepository().getAttackStats(for: name)
     }
     
     func attack(_ target: Defender) {
@@ -112,8 +126,8 @@ extension Combatant: Attacker {
 }
 
 extension Combatant: Defender {
-    var defenseStats: CombatStats {
-        CombatStatsRepository().getStats(for: name)
+    var defenseStats: DefenseStats {
+        CombatStatsRepository().getDefenseStats(for: name)
     }
     
     func takeDamage(_ amount: Int) {
@@ -122,7 +136,7 @@ extension Combatant: Defender {
         updateStats(newStats)
     }
     
-    func updateStats(_ newStats: CombatStats) {
+    func updateStats(_ newStats: DefenseStats) {
         // 在實際應用中，這裡應該要保存到某個持久化存儲
         // 現在我們通過 CombatContext 來管理狀態
     }
@@ -132,8 +146,8 @@ extension Combatant: Defender {
 class CombatContext: ObservableObject {
     private let statsRepo = CombatStatsRepository()
     
-    @Published var playerStats: CombatStats
-    @Published var enemyStats: CombatStats
+    @Published var playerDefenseStats: DefenseStats
+    @Published var enemyDefenseStats: DefenseStats
     @Published var isAttacking: Bool = false
     @Published var gameOver: Bool = false
     
@@ -144,18 +158,17 @@ class CombatContext: ObservableObject {
         self.player = Combatant(name: "勇者")
         self.enemy = Combatant(name: "魔王")
         
-        self.playerStats = statsRepo.getStats(for: player.name)
-        self.enemyStats = statsRepo.getStats(for: enemy.name)
+        self.playerDefenseStats = statsRepo.getDefenseStats(for: player.name)
+        self.enemyDefenseStats = statsRepo.getDefenseStats(for: enemy.name)
     }
     
     func performAttack() {
-        // 使用 Role 來執行攻擊
         let attacker = player as Attacker
-        var newEnemyStats = enemyStats
+        var newEnemyStats = enemyDefenseStats
         newEnemyStats.takeDamage(attacker.attackStats.attack)
-        enemyStats = newEnemyStats
+        enemyDefenseStats = newEnemyStats
         
-        if enemyStats.currentHP <= 0 {
+        if enemyDefenseStats.currentHP <= 0 {
             gameOver = true
         }
     }
@@ -211,7 +224,7 @@ struct DamageNumber {
 
 struct HealthBarView: View {
     let character: Combatant
-    let stats: CombatStats
+    let stats: DefenseStats
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -258,10 +271,10 @@ struct CombatView: View {
                 // Health bars
                 HStack {
                     HealthBarView(character: combatContext.player, 
-                                stats: combatContext.playerStats)
+                                stats: combatContext.playerDefenseStats)
                     Spacer()
                     HealthBarView(character: combatContext.enemy, 
-                                stats: combatContext.enemyStats)
+                                stats: combatContext.enemyDefenseStats)
                 }
                 .padding()
                 
@@ -300,8 +313,9 @@ struct CombatView: View {
             // Attack button
             Button("攻擊") {
                 Task {
+                    let playerAttackStats = (combatContext.player as Attacker).attackStats
                     combatContext.isAttacking = true
-                    await visualContext.animateAttack(damage: combatContext.playerStats.attack)
+                    await visualContext.animateAttack(damage: playerAttackStats.attack)
                     combatContext.performAttack()
                     combatContext.isAttacking = false
                 }

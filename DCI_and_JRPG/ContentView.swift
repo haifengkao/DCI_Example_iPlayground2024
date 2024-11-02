@@ -88,7 +88,47 @@ struct CombatantVisuals {
     var color: Color
 }
 
-// MARK: - Contexts
+// MARK: - Roles (Interactions)
+protocol Attacker {
+    var attackStats: CombatStats { get }
+    func attack(_ target: Defender)
+}
+
+protocol Defender {
+    var defenseStats: CombatStats { get }
+    func takeDamage(_ amount: Int)
+    func updateStats(_ newStats: CombatStats)
+}
+
+// MARK: - Role Extensions
+extension Combatant: Attacker {
+    var attackStats: CombatStats {
+        CombatStatsRepository().getStats(for: name)
+    }
+    
+    func attack(_ target: Defender) {
+        target.takeDamage(attackStats.attack)
+    }
+}
+
+extension Combatant: Defender {
+    var defenseStats: CombatStats {
+        CombatStatsRepository().getStats(for: name)
+    }
+    
+    func takeDamage(_ amount: Int) {
+        var newStats = defenseStats
+        newStats.takeDamage(amount)
+        updateStats(newStats)
+    }
+    
+    func updateStats(_ newStats: CombatStats) {
+        // 在實際應用中，這裡應該要保存到某個持久化存儲
+        // 現在我們通過 CombatContext 來管理狀態
+    }
+}
+
+// MARK: - Context
 class CombatContext: ObservableObject {
     private let statsRepo = CombatStatsRepository()
     
@@ -109,7 +149,12 @@ class CombatContext: ObservableObject {
     }
     
     func performAttack() {
-        enemyStats.takeDamage(playerStats.attack)
+        // 使用 Role 來執行攻擊
+        let attacker = player as Attacker
+        var newEnemyStats = enemyStats
+        newEnemyStats.takeDamage(attacker.attackStats.attack)
+        enemyStats = newEnemyStats
+        
         if enemyStats.currentHP <= 0 {
             gameOver = true
         }

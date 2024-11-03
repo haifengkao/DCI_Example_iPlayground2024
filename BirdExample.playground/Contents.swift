@@ -1,4 +1,30 @@
-// Data - 純粹的資料
+class Bird {
+    let name: String
+}
+class FlyableBird: Bird {
+    func fly() {
+        print("\(name) is flying!")
+    }
+}
+class SwimmableBird: Bird {
+    func swim() {
+        print("\(name) is swimming!")
+    }
+}
+class Penguin: SwimmableBird {
+    func sliding() {
+        print("\(name) is sliding!")
+    }
+}
+class FlyableAndSwimmableBird: Bird {
+    func ???() {
+        // ???
+    }
+}
+
+
+
+// Data - 純粹的 資料
 struct BirdData {
     let name: String
 }

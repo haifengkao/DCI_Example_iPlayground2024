@@ -109,9 +109,9 @@ class CombatContext: ObservableObject {
     private var playerAsAttacker: Attacker?
     private var enemyAsDefender: Defender?
 
-    init() {
-        player = Combatant(name: "勇者")
-        enemy = Combatant(name: "魔王")
+    init(attackerName: String, defenderName: String) {
+        player = Combatant(name: attackerName)
+        enemy = Combatant(name: defenderName)
 
         // 從 Repository 獲取初始數據
         let playerStats = statsRepo.getInitialStats(for: player.name)
@@ -181,11 +181,11 @@ class CombatContext: ObservableObject {
 // MARK: - Views
 
 struct CombatView: View {
-    @StateObject private var combatContext = CombatContext()
+    @StateObject private var combatContext = CombatContext(attackerName: "勇者", defenderName: "魔王")
     @StateObject private var visualContext: VisualContext
 
     init() {
-        let combat = CombatContext()
+        let combat = CombatContext(attackerName: "勇者", defenderName: "魔王")
         _combatContext = StateObject(wrappedValue: combat)
         _visualContext = StateObject(wrappedValue: VisualContext(
             player: combat.player,

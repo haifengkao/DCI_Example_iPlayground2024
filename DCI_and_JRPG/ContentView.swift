@@ -92,39 +92,38 @@ class CombatContext: ObservableObject {
     private let statsRepo = CombatStatsRepository()
 
     // 戰鬥狀態
-    @Published var playerHP: (current: Int, max: Int)
-    @Published var enemyHP: (current: Int, max: Int)
+    @Published var attackerHP: (current: Int, max: Int)
+    @Published var defenderHP: (current: Int, max: Int)
     @Published var isAttacking: Bool = false
     @Published var gameOver: Bool = false
 
     // 戰鬥數值
-    private let playerAttackPower: Int
-    private let enemyAttackPower: Int
+    private let attackerAttackPower: Int
+    private let defenderAttackPower: Int
 
     // 原始數據
-    let player: Combatant
-    let enemy: Combatant
+    let attacker: Combatant
+    let defender: Combatant
 
     // Role assignments
-    private var playerAsAttacker: Attacker?
-    private var enemyAsDefender: Defender?
+    private var attackerRole: Attacker?
+    private var defenderRole: Defender?
 
     init(attackerName: String, defenderName: String) {
-        player = Combatant(name: attackerName)
-        enemy = Combatant(name: defenderName)
+        attacker = Combatant(name: attackerName)
+        defender = Combatant(name: defenderName)
 
         // 從 Repository 獲取初始數據
-        let playerStats = statsRepo.getInitialStats(for: player.name)
-        let enemyStats = statsRepo.getInitialStats(for: enemy.name)
+        let attackerStats = statsRepo.getInitialStats(for: attacker.name)
+        let defenderStats = statsRepo.getInitialStats(for: defender.name)
 
-        playerHP = playerStats.hp
-        enemyHP = enemyStats.hp
-        playerAttackPower = playerStats.attackPower
-        enemyAttackPower = enemyStats.attackPower
+        attackerHP = attackerStats.hp
+        defenderHP = defenderStats.hp
+        attackerAttackPower = attackerStats.attackPower
+        defenderAttackPower = defenderStats.attackPower
 
-        playerAsAttacker = player as Attacker
-
-        enemyAsDefender = enemy as Defender
+        attackerRole = attacker as Attacker
+        defenderRole = defender as Defender
 
         CombatContext.current = self
     }
@@ -136,8 +135,8 @@ class CombatContext: ObservableObject {
     }
 
     func performAttack() {
-        guard let attacker = playerAsAttacker,
-              let defender = enemyAsDefender
+        guard let attacker = attackerRole,
+              let defender = defenderRole
         else {
             return
         }
@@ -152,26 +151,26 @@ class CombatContext: ObservableObject {
     // Context methods for roles to access data
     fileprivate func getAttackPower(for name: String) -> Int {
         switch name {
-        case player.name: return playerAttackPower
-        case enemy.name: return enemyAttackPower
+        case attacker.name: return attackerAttackPower
+        case defender.name: return defenderAttackPower
         default: return 0
         }
     }
 
     fileprivate func getCurrentHP(for name: String) -> (current: Int, max: Int) {
         switch name {
-        case player.name: return playerHP
-        case enemy.name: return enemyHP
+        case attacker.name: return attackerHP
+        case defender.name: return defenderHP
         default: return (0, 0)
         }
     }
 
     fileprivate func applyDamage(_ amount: Int, to name: String) {
         switch name {
-        case player.name:
-            playerHP.current = max(0, playerHP.current - amount)
-        case enemy.name:
-            enemyHP.current = max(0, enemyHP.current - amount)
+        case attacker.name:
+            attackerHP.current = max(0, attackerHP.current - amount)
+        case defender.name:
+            defenderHP.current = max(0, defenderHP.current - amount)
         default:
             break
         }
@@ -188,8 +187,8 @@ struct CombatView: View {
         let combat = CombatContext(attackerName: "勇者", defenderName: "魔王")
         _combatContext = StateObject(wrappedValue: combat)
         _visualContext = StateObject(wrappedValue: VisualContext(
-            player: combat.player,
-            enemy: combat.enemy
+            player: combat.attacker,
+            enemy: combat.defender
         ))
     }
 
@@ -202,11 +201,11 @@ struct CombatView: View {
             VStack {
                 // Health bars
                 HStack {
-                    HealthBarView(character: combatContext.player,
-                                  hp: combatContext.playerHP)
+                    HealthBarView(character: combatContext.attacker,
+                                  hp: combatContext.attackerHP)
                     Spacer()
-                    HealthBarView(character: combatContext.enemy,
-                                  hp: combatContext.enemyHP)
+                    HealthBarView(character: combatContext.defender,
+                                  hp: combatContext.defenderHP)
                 }
                 .padding()
 
@@ -247,7 +246,7 @@ struct CombatView: View {
                 Task {
                     combatContext.isAttacking = true
                     await visualContext.animateAttack(
-                        damage: combatContext.getAttackPower(for: combatContext.player.name)
+                        damage: combatContext.getAttackPower(for: combatContext.attacker.name)
                     )
                     combatContext.performAttack()
                     combatContext.isAttacking = false

@@ -32,26 +32,28 @@ struct Combatant {
 
 protocol Attacker {
     var name: String { get }
-    func attack(_ target: Defender)
 }
 
 extension Attacker {
     func attack(_ target: Defender) {
-        guard let context = CombatContext.current else { return }
-        let damage = context.getAttackPower(for: name)
-        target.takeDamage(damage)
+        target.takeDamage(attackPower)
+    }
+    
+    private var attackPower: Int {
+        guard let context = CombatContext.current else { return 0 }
+        return context.getAttackPower(for: name)
     }
 }
 
 protocol Defender {
     var name: String { get }
-    func takeDamage(_ amount: Int)
 }
 
 extension Defender {
     func takeDamage(_ amount: Int) {
         guard let context = CombatContext.current else { return }
-        context.applyDamage(amount, to: name)
+       
+        applyDamage(amount)
 
         // 如果自己死了，通知 context
         if isDead {
@@ -59,6 +61,12 @@ extension Defender {
         }
     }
 
+   
+    private func applyDamage(_ amount: Int) {
+        guard let context = CombatContext.current else { return }
+        context.applyDamage(amount, to: name)
+    }
+    
     var isDead: Bool {
         guard let context = CombatContext.current else { return false }
         let hp = context.getCurrentHP(for: name)
